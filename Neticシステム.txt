@@ -1,0 +1,2225 @@
+// Postオブジェクト
+{
+  id: "abc123",
+  title: "New AI tool idea",
+  content: "Let's build a GPT-powered design assistant!",
+  tags: ["AI", "design", "GPT"],
+  imageUrls: ["/img1.jpg", "/img2.jpg"],
+  externalLink: "https://example.com",
+  status: "Approved", // or "Completed"
+  reactions: { "🔥": 10, "❤️": 4 },
+  comments: [Comment[]],
+  createdAt: "2025-06-08T09:00:00Z",
+  authorId: "user456",
+  isBookmarked: false,
+  isAdminPost: true
+}
+const isValidInput = (text) => {
+  const allowedPattern = /^[\x00-\x7F\s!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?🙂-🙏]*$/;
+  return allowedPattern.test(text);
+};
+import React, { useState } from 'react';
+
+const isValidInput = (text) => {
+  const allowedPattern = /^[\x00-\x7F\s!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?🙂-🙏]*$/;
+  return allowedPattern.test(text);
+};
+
+const CreatePostModal = ({ isOpen, onClose, onSubmit, isAdmin }) => {
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [tags, setTags] = useState('');
+  const [imageFiles, setImageFiles] = useState([]);
+  const [externalLink, setExternalLink] = useState('');
+  const [error, setError] = useState('');
+
+  const handlePost = () => {
+    if (!title || !content) {
+      setError('Title and content are required.');
+      return;
+    }
+    if (!isValidInput(content)) {
+      setError('Only English, numbers, symbols, and emoji are allowed.');
+      return;
+    }
+
+    const tagArray = tags
+      .split(',')
+      .map((t) => t.trim())
+      .filter((t) => t.length > 0)
+      .slice(0, 5);
+
+    const post = {
+      id: Date.now().toString(),
+      title,
+      content,
+      tags: tagArray,
+      imageUrls: imageFiles.map((file) => URL.createObjectURL(file)),
+      externalLink: isAdmin ? externalLink : null,
+      createdAt: new Date().toISOString(),
+      reactions: {},
+      status: 'Pending',
+      isBookmarked: false,
+      isAdminPost: isAdmin
+    };
+
+    console.log('New Post:', post); // ← モック出力
+    onSubmit?.(post);
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-xl space-y-4">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white">Submit a New Idea</h2>
+
+        {error && <p className="text-red-500">{error}</p>}
+
+        <input
+          type="text"
+          placeholder="Title *"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="w-full p-2 rounded border dark:bg-gray-700 dark:text-white"
+        />
+
+        <textarea
+          placeholder="Describe your idea *"
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          rows={4}
+          className="w-full p-2 rounded border dark:bg-gray-700 dark:text-white"
+        />
+
+        <input
+          type="text"
+          placeholder="Tags (comma separated)"
+          value={tags}
+          onChange={(e) => setTags(e.target.value)}
+          className="w-full p-2 rounded border dark:bg-gray-700 dark:text-white"
+        />
+
+        {isAdmin && (
+          <>
+            <input
+              type="url"
+              placeholder="External Link (optional)"
+              value={externalLink}
+              onChange={(e) => setExternalLink(e.target.value)}
+              className="w-full p-2 rounded border dark:bg-gray-700 dark:text-white"
+            />
+
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={(e) => setImageFiles([...e.target.files])}
+              className="block text-sm text-gray-500 dark:text-gray-300"
+            />
+          </>
+        )}
+
+        <div className="flex justify-end space-x-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-300 dark:bg-gray-600 rounded hover:bg-gray-400 dark:hover:bg-gray-500"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handlePost}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Submit
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default CreatePostModal;import React, { useState } from 'react';
+import { Bookmark, BookmarkCheck, Share2, Heart, Flame, HelpCircle } from 'lucide-react';
+
+const emojiList = [
+  { icon: <Heart size={18} />, key: 'heart' },
+  { icon: <Flame size={18} />, key: 'fire' },
+  { icon: <HelpCircle size={18} />, key: 'thinking' }
+];
+
+const PostCard = ({ post, onToggleBookmark, onReact, onShare }) => {
+  const [userReaction, setUserReaction] = useState(null);
+  const [isBookmarked, setIsBookmarked] = useState(post.isBookmarked || false);
+
+  const handleReaction = (key) => {
+    if (userReaction === key) return;
+    setUserReaction(key);
+    onReact?.(post.id, key);
+  };
+
+  const handleBookmark = () => {
+    setIsBookmarked((prev) => !prev);
+    onToggleBookmark?.(post.id);
+  };
+
+  const handleShare = () => {
+    const url = `${window.location.origin}/post/${post.id}`;
+    onShare?.(url);
+  };
+
+  return (
+    <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-4 space-y-3 w-full">
+      {post.imageUrls?.[0] && (
+        <img src={post.imageUrls[0]} alt="Post" className="w-full h-40 object-cover rounded" />
+      )}
+
+      <div className="flex justify-between items-start">
+        <div>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">{post.title}</h3>
+          <p className="text-gray-600 dark:text-gray-300 text-sm whitespace-pre-wrap">
+            {post.content}
+          </p>
+        </div>
+
+        <div className="flex space-x-2 items-center">
+          <button onClick={handleBookmark}>
+            {isBookmarked ? (
+              <BookmarkCheck className="text-blue-600" size={20} />
+            ) : (
+              <Bookmark size={20} />
+            )}
+          </button>
+          <button onClick={handleShare}>
+            <Share2 size={20} />
+          </button>
+        </div>
+      </div>
+
+      {post.tags?.length > 0 && (
+        <div className="flex flex-wrap gap-2 text-xs text-blue-600">
+          {post.tags.map((tag) => (
+            <span key={tag} className="px-2 py-1 bg-blue-100 dark:bg-blue-900 rounded">
+              #{tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="flex space-x-4 text-gray-700 dark:text-gray-200 items-center text-sm">
+        {emojiList.map(({ icon, key }) => (
+          <button
+            key={key}
+            className={`flex items-center space-x-1 hover:text-blue-600 ${
+              userReaction === key ? 'text-blue-600' : ''
+            }`}
+            onClick={() => handleReaction(key)}
+          >
+            {icon}
+            <span>{post.reactions?.[key] || 0}</span>
+          </button>
+        ))}
+
+        {post.status && (
+          <span className="ml-auto px-2 py-0.5 bg-green-200 dark:bg-green-800 rounded text-xs">
+            {post.status}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default PostCard;
+
+<PostCard
+  post={post}
+  onToggleBookmark={(postId) => console.log('Bookmark toggled:', postId)}
+  onReact={(postId, type) => console.log(`Reaction ${type} for ${postId}`)}
+  onShare={(url) => {
+    navigator.clipboard.writeText(url);
+    alert('Link copied!');
+  }}
+/>
+import React, { useState } from 'react';
+import { Trash2, CornerDownRight, Heart, Flame, HelpCircle } from 'lucide-react';
+
+const emojiList = [
+  { icon: <Heart size={16} />, key: 'heart' },
+  { icon: <Flame size={16} />, key: 'fire' },
+  { icon: <HelpCircle size={16} />, key: 'thinking' }
+];
+
+const Comment = ({ comment, level = 0, onReply, onDelete, onReact, currentUserId }) => {
+  const [showReply, setShowReply] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [userReaction, setUserReaction] = useState(null);
+
+  const handleReact = (type) => {
+    if (userReaction === type) return;
+    setUserReaction(type);
+    onReact?.(comment.id, type);
+  };
+
+  const handleReply = () => {
+    if (!replyText.trim()) return;
+    onReply?.(comment.id, replyText.trim());
+    setReplyText('');
+    setShowReply(false);
+  };
+
+  return (
+    <div className={`pl-${level * 6} py-2 border-l border-gray-200 dark:border-gray-600`}>
+      <div className="bg-gray-100 dark:bg-gray-700 p-2 rounded space-y-1">
+        <div className="flex justify-between items-center">
+          <span className="text-sm text-gray-800 dark:text-white font-medium">
+            {comment.userName || 'User'}
+          </span>
+          {currentUserId === comment.userId || comment.isAdmin ? (
+            <button onClick={() => onDelete(comment.id)} className="text-red-500">
+              <Trash2 size={14} />
+            </button>
+          ) : null}
+        </div>
+
+        <p className="text-sm text-gray-700 dark:text-gray-200">{comment.content}</p>
+
+        <div className="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-300">
+          {emojiList.map(({ icon, key }) => (
+            <button
+              key={key}
+              onClick={() => handleReact(key)}
+              className={`flex items-center space-x-1 hover:text-blue-600 ${
+                userReaction === key ? 'text-blue-600' : ''
+              }`}
+            >
+              {icon}
+              <span>{comment.reactions?.[key] || 0}</span>
+            </button>
+          ))}
+
+          {level < 2 && (
+            <button
+              onClick={() => setShowReply(!showReply)}
+              className="flex items-center space-x-1"
+            >
+              <CornerDownRight size={14} />
+              <span>Reply</span>
+            </button>
+          )}
+        </div>
+
+        {showReply && (
+          <div className="pt-2 space-y-1">
+            <textarea
+              className="w-full text-sm border rounded p-1 dark:bg-gray-800 dark:text-white"
+              rows={2}
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              placeholder="Your reply (ENG / emoji / symbol only)"
+            />
+            <button
+              onClick={handleReply}
+              className="px-2 py-1 text-xs bg-blue-600 text-white rounded"
+            >
+              Submit
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Nested replies */}
+      {comment.replies?.map((child) => (
+        <Comment
+          key={child.id}
+          comment={child}
+          level={level + 1}
+          onReply={onReply}
+          onDelete={onDelete}
+          onReact={onReact}
+          currentUserId={currentUserId}
+        />
+      ))}
+    </div>
+  );
+};
+
+export default Comment;
+<Comment
+  comment={comment}
+  level={0}
+  onReply={(parentId, text) => console.log('Reply to', parentId, text)}
+  onDelete={(id) => console.log('Delete comment', id)}
+  onReact={(id, type) => console.log('React', type, 'to', id)}
+  currentUserId="user-123"
+/>
+import React, { useState } from 'react';
+
+const TagInput = ({ tags, setTags }) => {
+  const [inputValue, setInputValue] = useState('');
+
+  const isValidTag = (tag) =>
+    /^[a-zA-Z0-9#_!?@&*()\-+=.♥🔥🤔 ]{1,30}$/.test(tag) && tag.length <= 20;
+
+  const addTag = () => {
+    const newTag = inputValue.trim();
+    if (!newTag || tags.includes(newTag) || tags.length >= 5 || !isValidTag(newTag)) return;
+    setTags([...tags, newTag]);
+    setInputValue('');
+  };
+
+  const removeTag = (index) => {
+    const updated = [...tags];
+    updated.splice(index, 1);
+    setTags(updated);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addTag();
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {tags.map((tag, index) => (
+          <span
+            key={index}
+            className="bg-blue-600 text-white text-xs px-2 py-1 rounded-full flex items-center space-x-1"
+          >
+            <span>{tag}</span>
+            <button onClick={() => removeTag(index)} className="ml-1 text-white hover:text-red-300">
+              ×
+            </button>
+          </span>
+        ))}
+      </div>
+      <input
+        type="text"
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="Add a tag (press Enter)"
+        className="w-full p-2 border rounded text-sm dark:bg-gray-800 dark:text-white"
+      />
+    </div>
+  );
+};
+
+export default TagInput;
+const TagFilterSidebar = ({ allTags, selectedTag, onSelect }) => {
+  return (
+    <div className="p-4 space-y-2">
+      <h3 className="text-sm font-semibold text-gray-700 dark:text-white">Tags</h3>
+      <div className="flex flex-wrap gap-2">
+        {allTags.map((tag) => (
+          <button
+            key={tag}
+            onClick={() => onSelect(tag)}
+            className={`px-2 py-1 text-xs rounded-full ${
+              selectedTag === tag
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'
+            }`}
+          >
+            {tag}
+          </button>
+        ))}
+        <button
+          onClick={() => onSelect(null)}
+          className="px-2 py-1 text-xs rounded-full bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200"
+        >
+          Clear
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default TagFilterSidebar;
+// TagInput
+<TagInput tags={tags} setTags={setTags} />
+
+// Sidebar Filter
+<TagFilterSidebar
+  allTags={["design", "UX", "🔥", "AI"]}
+  selectedTag={selected}
+  onSelect={(tag) => setSelected(tag)}
+/>
+// ユーザーにadmin属性を付与して判定する
+const currentUser = {
+  id: 'user123',
+  name: 'AdminUser',
+  isAdmin: true, // 管理者フラグ
+};
+const AdminControls = ({ isAdmin, onSetStatus, onEditStats }) => {
+  if (!isAdmin) return null;
+
+  return (
+    <div className="flex flex-col gap-2 mt-4 border-t pt-4 border-gray-300 dark:border-gray-700">
+      <label className="text-sm font-medium text-gray-700 dark:text-gray-200">Admin Controls</label>
+      
+      <div className="flex gap-2">
+        <button onClick={() => onSetStatus("制作決定")} className="bg-green-600 text-white px-3 py-1 rounded text-sm">
+          Set as “制作決定”
+        </button>
+        <button onClick={() => onSetStatus("完成")} className="bg-blue-600 text-white px-3 py-1 rounded text-sm">
+          Set as “完成”
+        </button>
+      </div>
+
+      <div className="flex flex-col gap-2 mt-2">
+        <label className="text-xs text-gray-500 dark:text-gray-400">Edit Stats</label>
+        <div className="flex gap-2">
+          <input
+            type="number"
+            onChange={(e) => onEditStats("likes", Number(e.target.value))}
+            placeholder="Likes"
+            className="w-20 p-1 text-sm border rounded dark:bg-gray-800 dark:text-white"
+          />
+          <input
+            type="number"
+            onChange={(e) => onEditStats("comments", Number(e.target.value))}
+            placeholder="Comments"
+            className="w-24 p-1 text-sm border rounded dark:bg-gray-800 dark:text-white"
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+const ImageUploader = ({ isAdmin, images, setImages }) => {
+  const handleUpload = (e) => {
+    const files = Array.from(e.target.files);
+    setImages([...images, ...files]);
+  };
+
+  if (!isAdmin) return null;
+
+  return (
+    <div className="mt-4">
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+        Upload Images (Admin Only)
+      </label>
+      <input
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={handleUpload}
+        className="mt-1 block w-full text-sm text-gray-700 dark:text-gray-200"
+      />
+      {images.length > 0 && (
+        <div className="mt-2 flex gap-2 overflow-x-auto">
+          {images.map((file, idx) => (
+            <img
+              key={idx}
+              src={URL.createObjectURL(file)}
+              alt={`preview-${idx}`}
+              className="h-20 w-auto rounded shadow"
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+const AdminPostOnlyArea = ({ isAdmin }) => {
+  if (!isAdmin) return null;
+
+  return (
+    <div className="p-4 bg-yellow-100 dark:bg-yellow-800 rounded-md mt-4">
+      <h3 className="text-sm font-bold text-yellow-800 dark:text-yellow-200">Admin-only Post</h3>
+      <p className="text-xs text-yellow-700 dark:text-yellow-300">Only admins can create posts here.</p>
+      {/* 投稿フォームや画像挿入など、投稿UIと連携 */}
+    </div>
+  );
+};
+<AdminPostOnlyArea isAdmin={currentUser.isAdmin} />
+<ImageUploader isAdmin={currentUser.isAdmin} images={images} setImages={setImages} />
+<AdminControls
+  isAdmin={currentUser.isAdmin}
+  onSetStatus={(status) => console.log("Set status to:", status)}
+  onEditStats={(type, value) => console.log("Edit", type, "to", value)}
+/>
+const notifications = [
+  {
+    id: 'notif1',
+    userId: 'user123',
+    message: '🎉 Your idea "Smart Water Bottle" was selected for production!',
+    type: 'status_update',
+    postId: 'post456',
+    createdAt: '2025-06-08T12:00:00Z',
+    isRead: false,
+  },
+];
+const triggerStatusNotification = (userId, postTitle, status) => {
+  const statusMessages = {
+    '制作決定': `🎉 Your idea "${postTitle}" was selected for production!`,
+    '完成': `🚀 Your idea "${postTitle}" has been completed!`,
+    'リリース済み': `🌍 Your idea "${postTitle}" is now live!`,
+  };
+
+  const notification = {
+    id: uuid(),
+    userId,
+    postId: uuid(), // 投稿IDと紐づけてもOK
+    message: statusMessages[status],
+    type: 'status_update',
+    createdAt: new Date().toISOString(),
+    isRead: false,
+  };
+
+  setNotifications((prev) => [notification, ...prev]);
+
+  // 🎵 再生演出（音 + アニメーション）
+  playNotificationSound();
+  triggerCelebration();
+};
+const playNotificationSound = () => {
+  const audio = new Audio('/sounds/success-chime.mp3'); // ローカル or 公開URL
+  audio.play();
+};
+const playNotificationSound = () => {
+  const audio = new Audio('/sounds/success-chime.mp3'); // ローカル or 公開URL
+  audio.play();
+};
+const triggerCelebration = () => {
+  const confetti = document.createElement('div');
+  confetti.className = 'fixed inset-0 pointer-events-none z-50 animate-fade-in';
+  confetti.innerHTML = `
+    <div class="w-full h-full flex justify-center items-center">
+      <span class="text-4xl animate-bounce">🎉🎉🎉</span>
+    </div>
+  `;
+  document.body.appendChild(confetti);
+
+  setTimeout(() => {
+    document.body.removeChild(confetti);
+  }, 3000);
+};
+const NotificationList = ({ notifications, currentUserId }) => {
+  const userNotifications = notifications.filter(n => n.userId === currentUserId);
+
+  return (
+    <div className="max-w-md mx-auto mt-6">
+      <h2 className="text-lg font-bold text-gray-800 dark:text-white">Notifications</h2>
+      <ul className="mt-2 space-y-2">
+        {userNotifications.map((n) => (
+          <li key={n.id} className="bg-white dark:bg-gray-800 p-3 rounded shadow text-sm">
+            <span className="block">{n.message}</span>
+            <span className="text-xs text-gray-500">{new Date(n.createdAt).toLocaleString()}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+const AdminBroadcast = ({ isAdmin }) => {
+  const [message, setMessage] = useState("");
+
+  const handleBroadcast = () => {
+    const allUsers = getAllUserIds(); // 仮の関数
+    allUsers.forEach((userId) => {
+      const notif = {
+        id: uuid(),
+        userId,
+        message: `📢 ${message}`,
+        type: 'broadcast',
+        createdAt: new Date().toISOString(),
+        isRead: false,
+      };
+      setNotifications((prev) => [notif, ...prev]);
+    });
+    setMessage("");
+  };
+
+  if (!isAdmin) return null;
+
+  return (
+    <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900 rounded">
+      <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-white">Broadcast Message</label>
+      <input
+        type="text"
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        placeholder="Enter your announcement..."
+        className="w-full p-2 border rounded dark:bg-gray-800 dark:text-white"
+      />
+      <button onClick={handleBroadcast} className="mt-2 bg-blue-600 text-white px-4 py-1 rounded">
+        Send to All Users
+      </button>
+    </div>
+  );
+};
+<AdminControls
+  isAdmin={currentUser.isAdmin}
+  onSetStatus={(status) => {
+    triggerStatusNotification(post.authorId, post.title, status);
+    setPostStatus(post.id, status); // ステータス保存処理
+  }}
+  onEditStats={...}
+/>
+<AdminControls
+  isAdmin={currentUser.isAdmin}
+  onSetStatus={(status) => {
+    triggerStatusNotification(post.authorId, post.title, status);
+    setPostStatus(post.id, status); // ステータス保存処理
+  }}
+  onEditStats={...}
+/>
+const users = [
+  {
+    id: 'user123',
+    username: 'creative_spark',
+    avatarUrl: '/avatars/default.png', // 任意設定
+    joinedAt: '2025-05-12T12:00:00Z',
+  }
+];
+useEffect(() => {
+  const session = supabase.auth.getSession();
+  if (session) {
+    setCurrentUser(session.user);
+  }
+}, []);
+const ProfilePage = ({ userId }) => {
+  const user = getUserById(userId); // 仮データから取得
+  const userPosts = posts.filter((post) => post.userId === userId);
+
+  return (
+    <div className="max-w-3xl mx-auto py-6">
+      <div className="flex items-center space-x-4">
+        <img
+          src={user.avatarUrl || '/avatars/default.png'}
+          alt="User Avatar"
+          className="w-16 h-16 rounded-full"
+        />
+        <div>
+          <h2 className="text-xl font-bold text-gray-800 dark:text-white">@{user.username}</h2>
+          <p className="text-sm text-gray-500">Joined: {new Date(user.joinedAt).toLocaleDateString()}</p>
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <h3 className="text-lg font-semibold text-gray-700 dark:text-white">My Ideas</h3>
+        <ul className="mt-2 space-y-4">
+          {userPosts.map((post) => (
+            <li key={post.id} className="p-4 bg-white dark:bg-gray-800 rounded shadow">
+              <h4 className="font-semibold">{post.title}</h4>
+              <p className="text-sm text-gray-600 dark:text-gray-300">{post.content}</p>
+              <Link to={`/post/${post.id}`} className="text-blue-500 text-sm underline">View Details</Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+};
+const ProfileEditModal = ({ user, onSave }) => {
+  const [username, setUsername] = useState(user.username);
+  const [avatar, setAvatar] = useState(null);
+
+  const handleSave = () => {
+    const updatedUser = {
+      ...user,
+      username,
+      avatarUrl: avatar ? URL.createObjectURL(avatar) : user.avatarUrl,
+    };
+    onSave(updatedUser);
+  };
+
+  return (
+    <div className="p-4 bg-white dark:bg-gray-800 rounded shadow w-full max-w-md mx-auto">
+      <h2 className="text-lg font-bold mb-4 text-gray-800 dark:text-white">Edit Profile</h2>
+      <input
+        type="text"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+        placeholder="Username"
+        className="w-full p-2 border rounded mb-3 dark:bg-gray-700 dark:text-white"
+      />
+      <input
+        type="file"
+        accept="image/*"
+        onChange={(e) => setAvatar(e.target.files[0])}
+        className="mb-3"
+      />
+      <button onClick={handleSave} className="bg-green-600 text-white px-4 py-2 rounded">
+        Save Changes
+      </button>
+    </div>
+  );
+};
+<Route path="/user/:userId" element={<ProfilePage userId={params.userId} />} />
+<Link to={`/user/${post.userId}`} className="text-sm text-blue-600 hover:underline">
+  @{getUserById(post.userId).username}
+</Link>
+<img
+  src={user.avatarUrl || '/avatars/default.png'}
+  className="w-8 h-8 rounded-full"
+/>
+// 英語・数字・記号・絵文字のみを許容する正規表現
+const allowedInputRegex = /^[\p{L}\p{N}\p{P}\p{S}\p{Emoji}\s]+$/u;
+
+// フィルタ関数（投稿やコメントのバリデーションに使用）
+const isValidInput = (text) => {
+  return allowedInputRegex.test(text);
+};
+const handlePost = () => {
+  if (!title || !content) return alert("Title and content are required.");
+  if (!isValidInput(content)) return alert("Only English, numbers, symbols, and emojis allowed.");
+  // 保存処理へ進む
+};
+<button
+  onClick={() => handleReport(post.id)}
+  className="text-red-500 text-sm hover:underline"
+>
+  🚩 Report
+</button>
+const handleReport = (id) => {
+  console.log(`Reported content ID: ${id}`);
+  alert("This content has been reported. Thank you!");
+};
+const GuidelineModal = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded shadow max-w-lg">
+        <h2 className="text-lg font-bold text-gray-800 dark:text-white mb-4">Community Guidelines</h2>
+        <ul className="list-disc ml-6 space-y-2 text-sm text-gray-600 dark:text-gray-300">
+          <li>Only use English, numbers, symbols, and emojis in your posts.</li>
+          <li>Hateful, violent, or discriminatory content is prohibited.</li>
+          <li>Be respectful when giving feedback or discussing ideas.</li>
+        </ul>
+        <button onClick={onClose} className="mt-4 bg-blue-600 text-white px-4 py-2 rounded">
+          Close
+        </button>
+      </div>
+    </div>
+  );
+};
+<div className="flex justify-end space-x-4 text-sm text-gray-500 dark:text-gray-400">
+  <button onClick={() => handleReport(post.id)} className="hover:underline">🚩 Report</button>
+</div>
+{currentUser?.isAdmin && (
+  <div className="mb-4">
+    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">
+      Upload Images (optional, first shown as thumbnail)
+    </label>
+    <input
+      type="file"
+      accept="image/*"
+      multiple
+      onChange={(e) => setImages(Array.from(e.target.files))}
+      className="mt-1 text-sm"
+    />
+  </div>
+)}
+const newPost = {
+  id: uuid(),
+  title,
+  content,
+  tags,
+  images: uploadedImageUrls, // ["https://...1.png", "https://...2.jpg"]
+  createdAt: new Date().toISOString(),
+  userId: currentUser.id,
+  isAdminPost: currentUser.isAdmin,
+};
+{post.images?.length > 0 && (
+  <img
+    src={post.images[0]}
+    alt="Post thumbnail"
+    className="w-full h-48 object-cover rounded-lg mb-3"
+  />
+)}
+const ImageSlider = ({ images }) => {
+  const [index, setIndex] = useState(0);
+  if (!images || images.length === 0) return null;
+
+  const next = () => setIndex((index + 1) % images.length);
+  const prev = () => setIndex((index - 1 + images.length) % images.length);
+
+  return (
+    <div className="relative w-full">
+      <img
+        src={images[index]}
+        alt={`Slide ${index + 1}`}
+        className="w-full h-64 object-cover rounded-lg"
+      />
+      {images.length > 1 && (
+        <>
+          <button onClick={prev} className="absolute left-2 top-1/2 -translate-y-1/2 text-white text-2xl">◀</button>
+          <button onClick={next} className="absolute right-2 top-1/2 -translate-y-1/2 text-white text-2xl">▶</button>
+        </>
+      )}
+    </div>
+  );
+};
+<ImageSlider images={post.images} />
+// モック：ファイル読み込み後URL配列を返す
+const uploadImages = async (files) => {
+  const urls = await Promise.all(files.map(async (file) => {
+    // 実際は Supabase Storage などにアップロード
+    const mockUrl = URL.createObjectURL(file); // for testing only
+    return mockUrl;
+  }));
+  return urls;
+};
+{currentUser?.isAdmin && (
+  <button onClick={() => openImageEditor(post.id)}>
+    ➕ Add Images
+  </button>
+)}
+<div className="flex items-center space-x-2 mt-2">
+  <button
+    onClick={() => handleShare(post)}
+    className="text-blue-500 hover:underline text-sm"
+  >
+    🔗 Share
+  </button>
+</div>
+const handleShare = (post) => {
+  const shareUrl = `${window.location.origin}/post/${post.id}`;
+  const encodedUrl = encodeURIComponent(shareUrl);
+  const text = encodeURIComponent(`Check out this idea: "${post.title}"`);
+
+  const shareOptions = [
+    {
+      name: "Twitter/X",
+      url: `https://twitter.com/intent/tweet?url=${encodedUrl}&text=${text}`,
+    },
+    {
+      name: "Facebook",
+      url: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`,
+    },
+    {
+      name: "LinkedIn",
+      url: `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`,
+    },
+    {
+      name: "Copy Link",
+      action: () => {
+        navigator.clipboard.writeText(shareUrl);
+        alert("🔗 Link copied to clipboard!");
+      },
+    },
+  ];
+
+  const selected = prompt(
+    `Choose share platform:\n${shareOptions
+      .map((opt, i) => `${i + 1}. ${opt.name}`)
+      .join("\n")}`
+  );
+
+  const index = parseInt(selected) - 1;
+  const option = shareOptions[index];
+
+  if (option?.url) window.open(option.url, "_blank");
+  if (option?.action) option.action();
+};
+<!-- 公開ページのheadタグ内（投稿詳細ページ） -->
+<meta property="og:title" content="Idea: Title Here" />
+<meta property="og:description" content="Short content preview..." />
+<meta property="og:image" content="https://example.com/thumb.jpg" />
+<meta property="og:url" content="https://netic.com/post/12345" />
+<meta property="og:type" content="article" />
+<div className="relative">
+  <button onClick={() => setShowShareMenu(true)} className="text-sm text-blue-500">
+    🔗 Share
+  </button>
+
+  {showShareMenu && (
+    <div className="absolute mt-1 p-2 bg-white dark:bg-gray-800 rounded shadow">
+      {shareOptions.map((opt, i) => (
+        <button
+          key={i}
+          onClick={() => {
+            opt.action ? opt.action() : window.open(opt.url, "_blank");
+            setShowShareMenu(false);
+          }}
+          className="block w-full text-left px-2 py-1 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+        >
+          {opt.name}
+        </button>
+      ))}
+    </div>
+  )}
+</div>
+{
+  id: string;
+  title: string;
+  content: string;
+  tags: string[];
+  status: 'draft' | 'production' | 'completed' | 'released';
+  created_at: string;
+  author_id: string;
+  image_urls?: string[];
+}
+{post.status !== 'draft' && (
+  <div className="mt-1 text-xs text-green-500 font-semibold">
+    {post.status === 'production' && '✅ Production Decided'}
+    {post.status === 'completed' && '🎯 Completed'}
+    {post.status === 'released' && '🚀 Released'}
+  </div>
+)}
+{isAdmin(currentUser) && (
+  <div className="mt-2 flex gap-2">
+    <button
+      onClick={() => handleStatusChange(post.id, 'production')}
+      className="text-sm bg-yellow-100 text-yellow-800 px-2 py-1 rounded"
+    >
+      ✅ Production
+    </button>
+    <button
+      onClick={() => handleStatusChange(post.id, 'completed')}
+      className="text-sm bg-green-100 text-green-800 px-2 py-1 rounded"
+    >
+      🎯 Completed
+    </button>
+    <button
+      onClick={() => handleStatusChange(post.id, 'released')}
+      className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded"
+    >
+      🚀 Released
+    </button>
+  </div>
+)}
+{isAdmin(currentUser) && (
+  <div className="mt-2 flex gap-2">
+    <button
+      onClick={() => handleStatusChange(post.id, 'production')}
+      className="text-sm bg-yellow-100 text-yellow-800 px-2 py-1 rounded"
+    >
+      ✅ Production
+    </button>
+    <button
+      onClick={() => handleStatusChange(post.id, 'completed')}
+      className="text-sm bg-green-100 text-green-800 px-2 py-1 rounded"
+    >
+      🎯 Completed
+    </button>
+    <button
+      onClick={() => handleStatusChange(post.id, 'released')}
+      className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded"
+    >
+      🚀 Released
+    </button>
+  </div>
+)}
+const handleStatusChange = async (postId, newStatus) => {
+  // Supabase更新
+  await supabase
+    .from('posts')
+    .update({ status: newStatus })
+    .eq('id', postId);
+
+  // 投稿者に通知
+  const post = posts.find(p => p.id === postId);
+  const message = `🎉 Your idea "${post.title}" has been marked as "${newStatus}"!`;
+
+  await supabase.from('notifications').insert({
+    user_id: post.author_id,
+    message,
+    type: 'status',
+    created_at: new Date().toISOString(),
+  });
+
+  alert("✅ Status updated & user notified!");
+};
+{notifications.map((note) => (
+  <div
+    key={note.id}
+    className="p-2 mb-2 bg-gradient-to-r from-green-100 to-green-50 text-green-900 rounded"
+  >
+    <span className="mr-2">🎉</span>
+    {note.message}
+  </div>
+))}
+{isAdmin(currentUser) && (
+  <div className="my-4">
+    <input
+      type="text"
+      placeholder="Broadcast a message to all users"
+      value={broadcastText}
+      onChange={(e) => setBroadcastText(e.target.value)}
+      className="w-full border px-2 py-1"
+    />
+    <button
+      onClick={handleBroadcast}
+      className="mt-2 px-4 py-2 bg-blue-600 text-white rounded"
+    >
+      📢 Send Broadcast
+    </button>
+  </div>
+)}
+const handleBroadcast = async () => {
+  const { data: users } = await supabase.from('users').select('id');
+  const inserts = users.map((u) => ({
+    user_id: u.id,
+    message: `📢 ${broadcastText}`,
+    type: 'broadcast',
+    created_at: new Date().toISOString(),
+  }));
+  await supabase.from('notifications').insert(inserts);
+  alert("📢 Broadcast sent!");
+};
+{
+  id: string;
+  username: string;
+  icon_url?: string; // オプション
+  created_at: string;
+}
+useEffect(() => {
+  const fetchUser = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (session) {
+      setCurrentUser(session.user);
+    }
+  };
+  fetchUser();
+}, []);
+const ProfilePage = ({ userId }) => {
+  const [userInfo, setUserInfo] = useState(null);
+  const [userPosts, setUserPosts] = useState([]);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const { data: user } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      setUserInfo(user);
+
+      const { data: posts } = await supabase
+        .from('posts')
+        .select('*')
+        .eq('author_id', userId)
+        .order('created_at', { ascending: false });
+      setUserPosts(posts);
+    };
+    fetchProfile();
+  }, [userId]);
+
+  return (
+    <div className="p-4">
+      <div className="flex items-center space-x-4 mb-6">
+        <img
+          src={userInfo?.icon_url || '/default-avatar.png'}
+          alt="Avatar"
+          className="w-16 h-16 rounded-full"
+        />
+        <div>
+          <h2 className="text-xl font-bold">{userInfo?.username}</h2>
+          <p className="text-sm text-gray-500">Joined: {formatDate(userInfo?.created_at)}</p>
+        </div>
+      </div>
+
+      <h3 className="font-semibold mb-2">📝 Ideas Posted:</h3>
+      <ul className="space-y-2">
+        {userPosts.map((post) => (
+          <li key={post.id} className="border p-3 rounded bg-white shadow-sm">
+            <h4 className="font-bold">{post.title}</h4>
+            <p className="text-sm text-gray-600">{post.content}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+const ProfileEdit = ({ currentUser }) => {
+  const [username, setUsername] = useState(currentUser.username);
+  const [iconUrl, setIconUrl] = useState(currentUser.icon_url || '');
+
+  const handleSave = async () => {
+    await supabase.from('users').update({
+      username,
+      icon_url: iconUrl,
+    }).eq('id', currentUser.id);
+
+    alert('✅ Profile updated!');
+  };
+
+  return (
+    <div className="p-4 space-y-3">
+      <label className="block">
+        Username:
+        <input
+          className="border px-2 py-1 w-full"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+        />
+      </label>
+      <label className="block">
+        Avatar URL:
+        <input
+          className="border px-2 py-1 w-full"
+          value={iconUrl}
+          onChange={(e) => setIconUrl(e.target.value)}
+        />
+      </label>
+      <button
+        onClick={handleSave}
+        className="bg-blue-600 text-white px-4 py-2 rounded"
+      >
+        💾 Save Changes
+      </button>
+    </div>
+  );
+};
+<img
+  src={userInfo?.icon_url || '/default-avatar.png'}
+  alt="Avatar"
+  className="w-16 h-16 rounded-full"
+/>
+const validTextPattern = /^[\p{L}\p{N}\p{P}\p{S}\p{Emoji_Presentation}\s]+$/u;
+const isValidInput = (text) => {
+  const pattern = /^[a-zA-Z0-9\s!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~🤔❤️🔥💡🌟👍😊😎💬✅❌]+$/;
+  return pattern.test(text);
+};
+const handlePostSubmit = () => {
+  if (!isValidInput(title) || !isValidInput(content)) {
+    alert("Only English letters, numbers, symbols, and emoji are allowed.");
+    return;
+  }
+  // 投稿処理
+};
+<button
+  className="text-red-500 text-sm hover:underline"
+  onClick={() => reportContent('post', post.id)}
+>
+  🚩 Report
+</button>
+const reportContent = async (type, targetId) => {
+  const { error } = await supabase.from('reports').insert([
+    {
+      type, // "post" または "comment"
+      target_id: targetId,
+      reporter_id: currentUser.id,
+    },
+  ]);
+
+  if (!error) {
+    alert('🚨 Report submitted. Thank you!');
+  } else {
+    alert('❌ Error reporting content.');
+  }
+};
+type Report = {
+  id: string;
+  type: "post" | "comment";
+  target_id: string;
+  reporter_id: string;
+  created_at: string;
+};
+const ReportAdmin = () => {
+  const [reports, setReports] = useState([]);
+
+  useEffect(() => {
+    const fetchReports = async () => {
+      const { data } = await supabase
+        .from('reports')
+        .select('*')
+        .order('created_at', { ascending: false });
+      setReports(data);
+    };
+    fetchReports();
+  }, []);
+
+  return (
+    <div className="p-4 space-y-3">
+      <h2 className="text-lg font-bold">🚨 User Reports</h2>
+      {reports.map((report) => (
+        <div key={report.id} className="p-3 border rounded shadow-sm">
+          <p className="text-sm">
+            📌 Type: <strong>{report.type}</strong> | ID: {report.target_id}
+          </p>
+          <p className="text-xs text-gray-500">Reported by: {report.reporter_id}</p>
+        </div>
+      ))}
+    </div>
+  );
+};
+const PostGuidelines = () => (
+  <div className="p-3 border rounded bg-yellow-50 text-sm">
+    <p>✅ Please use English letters, numbers, symbols, and emoji only.</p>
+    <p>🚫 No offensive or inappropriate content allowed.</p>
+    <p>🚩 You can report content by clicking the report icon.</p>
+  </div>
+);
+-- Only allow admin role to upload/delete
+if (auth.role() == 'admin') {
+  allow read, write;
+} else {
+  allow read;
+}
+{isAdmin && (
+  <input
+    type="file"
+    accept="image/*"
+    multiple
+    onChange={handleImageUpload}
+    className="mt-2"
+  />
+)}
+const handleImageUpload = async (e) => {
+  const files = e.target.files;
+  const uploadedUrls = [];
+
+  for (let file of files) {
+    const filePath = `${Date.now()}-${file.name}`;
+    const { data, error } = await supabase.storage
+      .from('post-images')
+      .upload(filePath, file);
+
+    if (!error) {
+      const publicURL = supabase.storage
+        .from('post-images')
+        .getPublicUrl(filePath).data.publicUrl;
+
+      uploadedUrls.push(publicURL);
+    }
+  }
+
+  setImages(uploadedUrls); // imagesは投稿に保存される配列
+};
+type Post = {
+  id: string;
+  title: string;
+  content: string;
+  tags: string[];
+  images: string[]; // 画像URL配列
+  created_by: string;
+  ...
+};
+{post.images?.[0] && (
+  <img
+    src={post.images[0]}
+    alt="Post Thumbnail"
+    className="w-full h-40 object-cover rounded"
+  />
+)}
+npm install swiper
+import { Swiper, SwiperSlide } from 'swiper/react';
+import 'swiper/css';
+
+const ImageSlider = ({ images }) => (
+  <Swiper spaceBetween={10} slidesPerView={1}>
+    {images.map((url, index) => (
+      <SwiperSlide key={index}>
+        <img src={url} alt={`Slide ${index}`} className="w-full rounded" />
+      </SwiperSlide>
+    ))}
+  </Swiper>
+);
+{post.images && post.images.length > 0 && <ImageSlider images={post.images} />}
+{isAdmin && isProductionDecided(post) && (
+  <input
+    type="file"
+    accept="image/*"
+    multiple
+    onChange={(e) => handleImageAddToPost(post.id, e)}
+  />
+)}
+<button
+  onClick={() => setShareModalOpen(post.id)}
+  className="text-sm text-blue-500 hover:underline mt-2"
+>
+  🔗 Share
+</button>
+{shareModalOpen === post.id && (
+  <div className="absolute z-50 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 shadow-md p-3 rounded mt-1">
+    <p className="text-sm font-medium mb-2">Share this post:</p>
+    <div className="flex space-x-3">
+      <a
+        href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(postUrl)}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-500 hover:text-blue-700"
+      >
+        X
+      </a>
+      <a
+        href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(postUrl)}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-600 hover:text-blue-800"
+      >
+        Facebook
+      </a>
+      <a
+        href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(postUrl)}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-700 hover:text-blue-900"
+      >
+        LinkedIn
+      </a>
+      <button
+        onClick={() => {
+          navigator.clipboard.writeText(postUrl);
+          alert('URL copied to clipboard!');
+        }}
+        className="text-gray-500 hover:text-gray-700"
+      >
+        Copy URL
+      </button>
+    </div>
+  </div>
+)}
+const postUrl = `${window.location.origin}/post/${post.id}`;
+<meta property="og:title" content="Your Post Title" />
+<meta property="og:description" content="Description of your post" />
+<meta property="og:image" content="https://yourdomain.com/path-to-thumbnail.jpg" />
+<meta property="og:url" content="https://yourdomain.com/post/123" />
+<meta property="og:type" content="article" />
+<div className="flex justify-between mt-4 text-sm text-gray-500">
+  <div className="flex space-x-4">
+    <ReactionButton postId={post.id} />
+    <BookmarkButton postId={post.id} />
+  </div>
+  <button onClick={() => setShareModalOpen(post.id)}>🔗 Share</button>
+</div>
+{
+  id: string;
+  userId: string;
+  type: "status" | "info"; // status: 制作進行系, info: お知らせ
+  message: string;
+  postId?: string;
+  status?: "制作決定" | "完成" | "リリース済み";
+  read: boolean;
+  createdAt: string;
+}
+<div className="relative">
+  <button onClick={() => setNotificationOpen(!notificationOpen)}>
+    <Bell className="w-6 h-6 text-gray-500" />
+    {unreadCount > 0 && (
+      <span className="absolute top-0 right-0 bg-red-500 rounded-full text-white text-xs w-4 h-4 flex items-center justify-center">
+        {unreadCount}
+      </span>
+    )}
+  </button>
+  {notificationOpen && (
+    <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 border dark:border-gray-700 shadow-lg rounded-md z-50">
+      <div className="p-4 font-semibold border-b">Notifications</div>
+      {notifications.length === 0 ? (
+        <div className="p-4 text-sm text-gray-500">No notifications</div>
+      ) : (
+        <ul>
+          {notifications.map((n) => (
+            <li
+              key={n.id}
+              className={`p-3 text-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                !n.read ? "font-bold" : ""
+              }`}
+              onClick={() => handleNotificationClick(n.id, n.postId)}
+            >
+              {n.type === "status" && (
+                <>
+                  <span>🎉 Your idea is now marked as </span>
+                  <strong>{n.status}</strong>!
+                </>
+              )}
+              {n.type === "info" && (
+                <>
+                  <span>📢 {n.message}</span>
+                </>
+              )}
+              <div className="text-xs text-gray-400">{formatTimeAgo(n.createdAt)}</div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )}
+</div>
+useEffect(() => {
+  if (newNotification) {
+    new Audio("/sounds/celebration.mp3").play();
+    setShowConfetti(true);
+    setTimeout(() => setShowConfetti(false), 3000);
+  }
+}, [newNotification]);
+const sendStatusNotification = (userId: string, postId: string, status: string) => {
+  const notification = {
+    id: generateId(),
+    userId,
+    type: "status",
+    message: `Your post has been marked as ${status}.`,
+    status,
+    postId,
+    read: false,
+    createdAt: new Date().toISOString(),
+  };
+  mockDatabase.notifications.push(notification);
+};
+const sendGlobalNotification = (message: string) => {
+  mockDatabase.users.forEach((user) => {
+    mockDatabase.notifications.push({
+      id: generateId(),
+      userId: user.id,
+      type: "info",
+      message,
+      read: false,
+      createdAt: new Date().toISOString(),
+    });
+  });
+};
+<Route path="/notifications" element={<NotificationPage />} />
+const NotificationPage = () => {
+  return (
+    <div className="max-w-2xl mx-auto mt-10 px-4">
+      <h1 className="text-xl font-bold mb-4">Your Notifications</h1>
+      {notifications.length === 0 ? (
+        <p>No notifications yet.</p>
+      ) : (
+        <ul>
+          {notifications.map((n) => (
+            <li key={n.id} className="mb-4 p-3 bg-white dark:bg-gray-800 rounded shadow">
+              {n.type === "status" ? (
+                <p>
+                  🎉 Your idea has been marked as <strong>{n.status}</strong>!
+                </p>
+              ) : (
+                <p>📢 {n.message}</p>
+              )}
+              <div className="text-xs text-gray-400 mt-1">{formatTimeAgo(n.createdAt)}</div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};
+{
+  id: string;
+  username: string;
+  avatarUrl?: string;
+  bio?: string;
+  createdAt: string;
+}
+<Route path="/profile/:userId" element={<ProfilePage />} />
+const ProfilePage = () => {
+  const { userId } = useParams();
+  const user = users.find((u) => u.id === userId);
+  const posts = ideas.filter((idea) => idea.userId === userId);
+
+  if (!user) return <div>User not found</div>;
+
+  return (
+    <div className="max-w-3xl mx-auto mt-10 px-4">
+      <div className="flex items-center gap-4 mb-6">
+        <img
+          src={user.avatarUrl || "/default-avatar.png"}
+          alt="Avatar"
+          className="w-16 h-16 rounded-full"
+        />
+        <div>
+          <h2 className="text-xl font-bold">@{user.username}</h2>
+          {user.bio && <p className="text-sm text-gray-500">{user.bio}</p>}
+        </div>
+      </div>
+
+      <h3 className="text-lg font-semibold mb-2">Posts by @{user.username}</h3>
+      <div className="space-y-4">
+        {posts.length === 0 ? (
+          <p className="text-gray-500">No posts yet.</p>
+        ) : (
+          posts.map((idea) => <IdeaCard key={idea.id} idea={idea} />)
+        )}
+      </div>
+    </div>
+  );
+};
+<Route path="/edit-profile" element={<EditProfilePage />} />
+const EditProfilePage = () => {
+  const user = currentUser;
+  const [username, setUsername] = useState(user.username);
+  const [bio, setBio] = useState(user.bio || "");
+  const [avatarUrl, setAvatarUrl] = useState(user.avatarUrl || "");
+
+  const handleSave = () => {
+    user.username = username;
+    user.bio = bio;
+    user.avatarUrl = avatarUrl;
+    alert("Profile updated!");
+  };
+
+  return (
+    <div className="max-w-md mx-auto mt-10 px-4">
+      <h1 className="text-xl font-bold mb-4">Edit Profile</h1>
+      <label className="block mb-2">Username</label>
+      <input
+        className="w-full p-2 border rounded mb-4"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+      />
+      <label className="block mb-2">Bio</label>
+      <textarea
+        className="w-full p-2 border rounded mb-4"
+        value={bio}
+        onChange={(e) => setBio(e.target.value)}
+      />
+      <label className="block mb-2">Avatar URL</label>
+      <input
+        className="w-full p-2 border rounded mb-4"
+        value={avatarUrl}
+        onChange={(e) => setAvatarUrl(e.target.value)}
+      />
+      <button
+        className="px-4 py-2 bg-blue-600 text-white rounded"
+        onClick={handleSave}
+      >
+        Save
+      </button>
+    </div>
+  );
+};
+const isValidContent = (text: string): boolean => {
+  const regex = /^[\p{ASCII}\p{Emoji_Presentation}\p{Emoji}\p{Extended_Pictographic}\s.,!?'"@#$%^&*()\-_=+[\]{}|\\;:/<>\dA-Za-z]*$/u;
+  return regex.test(text);
+};
+if (!isValidContent(content)) {
+  alert("Only English letters, numbers, emojis, and symbols are allowed.");
+  return;
+}
+const ReportButton = ({ contentId, type }: { contentId: string; type: 'post' | 'comment' }) => {
+  const [reported, setReported] = useState(false);
+
+  const handleReport = () => {
+    if (reported) return;
+
+    // モック報告
+    reports.push({
+      id: uuidv4(),
+      contentId,
+      type,
+      userId: currentUser.id,
+      reportedAt: new Date().toISOString(),
+    });
+
+    alert("Reported successfully. Our team will review it.");
+    setReported(true);
+  };
+
+  return (
+    <button
+      className={`text-xs text-red-500 hover:underline ${reported && "opacity-50 pointer-events-none"}`}
+      onClick={handleReport}
+    >
+      {reported ? "Reported" : "Report"}
+    </button>
+  );
+};
+const reports = [
+  {
+    id: 'rpt-001',
+    contentId: 'post-123',
+    type: 'post', // or 'comment'
+    userId: 'user-456',
+    reportedAt: '2025-06-08T14:30:00Z',
+  },
+];
+{
+  id: "post-123",
+  title: "AI Music Platform",
+  content: "A platform to create music using AI 🎵",
+  tags: ["AI", "Music", "Creator"],
+  images: [
+    "https://xyz.supabase.co/storage/v1/object/public/posts/image1.png",
+    "https://xyz.supabase.co/storage/v1/object/public/posts/image2.png",
+  ],
+  author: "admin001",
+  isAdminPost: true,
+  ...
+}
+if (!currentUser.isAdmin && images.length > 0) {
+  alert("Only admin can upload images.");
+  return;
+}
+{post.images?.length > 0 && (
+  <img
+    src={post.images[0]}
+    alt="Idea Preview"
+    className="w-full h-40 object-cover rounded-md"
+  />
+)}
+{post.images && post.images.length > 0 && (
+  <div className="flex overflow-x-auto space-x-2 mt-4">
+    {post.images.map((imgUrl, index) => (
+      <img
+        key={index}
+        src={imgUrl}
+        alt={`Slide ${index + 1}`}
+        className="h-48 rounded shadow-md"
+      />
+    ))}
+  </div>
+)}
+{currentUser.isAdmin && (
+  <div className="mt-4">
+    <label className="block text-sm font-medium text-gray-700">Attach Images</label>
+    <input
+      type="file"
+      multiple
+      accept="image/*"
+      onChange={(e) => handleImageUpload(e.target.files)}
+      className="mt-1 block w-full"
+    />
+  </div>
+)}
+const handleImageUpload = (files: FileList | null) => {
+  if (!files) return;
+
+  const newImages: string[] = [];
+
+  Array.from(files).forEach(file => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (reader.result) {
+        newImages.push(reader.result.toString());
+        setFormData(prev => ({
+          ...prev,
+          images: [...(prev.images || []), ...newImages],
+        }));
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+};
+{currentUser.isAdmin && (
+  <button onClick={() => openImageEditor(post.id)}>
+    Add/Edit Images
+  </button>
+)}
+<div className="mt-2 flex justify-end">
+  <div className="relative group">
+    <button className="text-sm text-blue-600 hover:underline">Share</button>
+    <div className="absolute hidden group-hover:block mt-1 bg-white border rounded shadow-lg p-2 space-y-1 z-10">
+      <button onClick={() => shareTo('twitter', post)} className="block w-full text-left text-sm hover:text-blue-500">X (Twitter)</button>
+      <button onClick={() => shareTo('facebook', post)} className="block w-full text-left text-sm hover:text-blue-500">Facebook</button>
+      <button onClick={() => shareTo('linkedin', post)} className="block w-full text-left text-sm hover:text-blue-500">LinkedIn</button>
+      <button onClick={() => copyToClipboard(postUrl)} className="block w-full text-left text-sm hover:text-blue-500">Copy URL</button>
+    </div>
+  </div>
+</div>
+const shareTo = (platform: string, post: Post) => {
+  const postUrl = `${window.location.origin}/posts/${post.id}`;
+  const text = encodeURIComponent(`${post.title}`);
+  const image = encodeURIComponent(post.images?.[0] || '');
+  const url = encodeURIComponent(postUrl);
+
+  let shareUrl = '';
+
+  switch (platform) {
+    case 'twitter':
+      shareUrl = `https://twitter.com/intent/tweet?text=${text}&url=${url}`;
+      break;
+    case 'facebook':
+      shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${url}`;
+      break;
+    case 'linkedin':
+      shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${url}`;
+      break;
+    default:
+      break;
+  }
+
+  if (shareUrl) {
+    window.open(shareUrl, '_blank');
+  }
+};
+
+const copyToClipboard = (url: string) => {
+  navigator.clipboard.writeText(url);
+  alert("URL copied to clipboard!");
+};
+<meta property="og:title" content="AI Idea Platform | Share Ideas" />
+<meta property="og:description" content="An idea to create music with AI" />
+<meta property="og:image" content="https://example.com/preview.jpg" />
+<meta property="og:url" content="https://example.com/posts/123" />
+<meta property="og:type" content="article" />
+type Post = {
+  ...
+  status: 'pending' | 'decided' | 'completed' | 'released'; // 制作決定 / 完成 / リリース済み
+  statusUpdatedAt?: string;
+};
+{/* 通常の表示 */}
+{post.status !== 'pending' && (
+  <div className="text-xs text-green-600 font-semibold">
+    {post.status === 'decided' && 'Production Decided'}
+    {post.status === 'completed' && 'Completed'}
+    {post.status === 'released' && 'Released'}
+  </div>
+)}
+
+{/* 運営によるステータス変更用（セレクトボックス） */}
+{user?.isAdmin && (
+  <select
+    className="mt-2 text-sm border rounded p-1"
+    value={post.status}
+    onChange={(e) => updatePostStatus(post.id, e.target.value)}
+  >
+    <option value="pending">Pending</option>
+    <option value="decided">Production Decided</option>
+    <option value="completed">Completed</option>
+    <option value="released">Released</option>
+  </select>
+)}
+const updatePostStatus = async (postId: string, newStatus: string) => {
+  // Supabase またはローカルDBに更新
+  const updated = await updatePostInDB(postId, { status: newStatus, statusUpdatedAt: new Date().toISOString() });
+
+  // 通知送信（対象ユーザーに）
+  sendNotification({
+    toUserId: updated.userId,
+    type: 'status_update',
+    message: `Your idea has been marked as "${newStatus}"! 🎉`,
+    relatedPostId: postId,
+    icon: '🎉',
+  });
+
+  alert('Status updated and user notified!');
+};
+{notifications.map((n) => (
+  <div key={n.id} className="p-2 border-b hover:bg-gray-50">
+    <div className="flex items-center gap-2">
+      <span className="text-lg">{n.icon}</span>
+      <div>
+        <div className="text-sm font-medium">{n.message}</div>
+        <div className="text-xs text-gray-500">{formatTime(n.timestamp)}</div>
+      </div>
+    </div>
+  </div>
+))}
+if (newStatus === 'decided') {
+  playSoundEffect('celebration.mp3');
+  showToast("Congratulations! Your idea is now in production 🎉", 'success');
+}
+const sendAdminAnnouncement = (message: string) => {
+  allUsers.forEach(user => {
+    sendNotification({
+      toUserId: user.id,
+      type: 'announcement',
+      message,
+      icon: '📣',
+    });
+  });
+};
+type User = {
+  id: string;
+  username: string;
+  bio?: string;
+  iconUrl?: string; // 任意
+  createdAt: string;
+  isAdmin?: boolean;
+};
+import { createClient } from '@supabase/supabase-js';
+const supabase = createClient('your-url', 'your-anon-key');
+
+// App初回起動時にセッションを復元
+useEffect(() => {
+  const session = supabase.auth.getSession();
+  if (session) {
+    setUser(session.user);
+  }
+
+  supabase.auth.onAuthStateChange((_event, session) => {
+    setUser(session?.user ?? null);
+  });
+}, []);
+const Profile = ({ user }: { user: User }) => {
+  return (
+    <div className="max-w-xl mx-auto p-4">
+      <div className="flex items-center gap-4">
+        <img
+          src={user.iconUrl || defaultIcon(user.username)}
+          alt="User Icon"
+          className="w-16 h-16 rounded-full border"
+        />
+        <div>
+          <h2 className="text-xl font-bold">@{user.username}</h2>
+          <p className="text-sm text-gray-500">{user.bio || 'No bio yet.'}</p>
+        </div>
+      </div>
+      {/* 投稿履歴などを表示 */}
+    </div>
+  );
+};
+const defaultIcon = (username: string) => {
+  const colors = ['#FFB6C1', '#87CEFA', '#90EE90', '#D3D3D3'];
+  const index = username.charCodeAt(0) % colors.length;
+  return `https://ui-avatars.com/api/?name=${username}&background=${colors[index].slice(1)}&color=fff`;
+};
+const ProfileEditor = ({ user, onSave }: { user: User; onSave: (u: User) => void }) => {
+  const [bio, setBio] = useState(user.bio || '');
+  const [username, setUsername] = useState(user.username);
+  const [iconUrl, setIconUrl] = useState(user.iconUrl);
+
+  const handleSave = () => {
+    onSave({ ...user, username, bio, iconUrl });
+  };
+
+  return (
+    <div className="p-4 space-y-3">
+      <label>Username</label>
+      <input value={username} onChange={e => setUsername(e.target.value)} className="input" />
+      <label>Bio</label>
+      <textarea value={bio} onChange={e => setBio(e.target.value)} className="textarea" />
+      <label>Icon URL (optional)</label>
+      <input value={iconUrl} onChange={e => setIconUrl(e.target.value)} className="input" />
+      <button onClick={handleSave} className="btn">Save</button>
+    </div>
+  );
+};
+<div className="flex items-center gap-2">
+  <img
+    src={post.author.iconUrl || defaultIcon(post.author.username)}
+    alt="Avatar"
+    className="w-6 h-6 rounded-full"
+  />
+  <span className="text-sm font-medium">@{post.author.username}</span>
+</div>
+const allowedCharactersRegex = /^[\x20-\x7E\u00A1-\u00FF\u2600-\u27BF\u1F300-\u1F64F\u1F680-\u1F6FF]*$/;
+const isValidContent = (text) => allowedCharactersRegex.test(text);
+<ReportModal
+  isOpen={isReportOpen}
+  onClose={() => setIsReportOpen(false)}
+  targetType="post"
+  targetId={post.id}
+/>
+<div className="flex justify-end mt-2 text-sm text-gray-500 dark:text-gray-400">
+  <button
+    onClick={() => setIsReportOpen(true)}
+    className="hover:text-red-600"
+  >
+    🚩 Report
+  </button>
+</div>
+const AdminReportPanel = ({ supabase }) => {
+  const [reports, setReports] = useState([]);
+
+  useEffect(() => {
+    const fetchReports = async () => {
+      const { data, error } = await supabase
+        .from('reports')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      setReports(data || []);
+    };
+    fetchReports();
+  }, []);
+
+  const markAsResolved = async (id) => {
+    await supabase.from('reports').update({ status: 'resolved' }).eq('id', id);
+    setReports(reports.map(r => r.id === id ? { ...r, status: 'resolved' } : r));
+  };
+
+  return (
+    <div className="p-6 bg-white dark:bg-gray-900">
+      <h2 className="text-xl font-bold mb-4">🚨 User Reports</h2>
+      {reports.map((report) => (
+        <div key={report.id} className="border p-4 mb-4 rounded dark:border-gray-700">
+          <p><strong>Type:</strong> {report.target_type}</p>
+          <p><strong>Reason:</strong> {report.reason}</p>
+          <p><strong>Status:</strong> {report.status}</p>
+          <button
+            onClick={() => markAsResolved(report.id)}
+            className="mt-2 bg-green-500 text-white px-4 py-1 rounded"
+            disabled={report.status === 'resolved'}
+          >
+            Mark as Resolved
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+};
+const StatusSelector = ({ postId, currentStatus, onUpdate }) => {
+  const [status, setStatus] = useState(currentStatus);
+
+  const handleChange = async (e) => {
+    const newStatus = e.target.value;
+    setStatus(newStatus);
+    await supabase.from('posts').update({ status: newStatus }).eq('id', postId);
+    onUpdate(newStatus); // UI更新
+    await supabase.from('notifications').insert({
+      user_id: /* 投稿者ID */,
+      content: `🎉 Your idea status changed to "${newStatus}"!`,
+      type: "status",
+      is_read: false,
+    });
+  };
+
+  return (
+    <select value={status} onChange={handleChange} className="mt-2 border rounded p-1">
+      <option value="idea">🧠 Idea</option>
+      <option value="selected">✅ Selected</option>
+      <option value="completed">🏁 Completed</option>
+      <option value="released">🚀 Released</option>
+    </select>
+  );
+};
+const StatusNotification = ({ notification }) => {
+  return (
+    <div className="bg-gradient-to-r from-green-400 to-blue-500 p-4 rounded shadow text-white animate-pulse">
+      <span role="img" aria-label="celebrate">🎉</span> {notification.content}
+    </div>
+  );
+};
+import { FaTwitter, FaFacebookF, FaLinkedinIn, FaCopy } from 'react-icons/fa';
+
+const ShareButtons = ({ postId, title }) => {
+  const postUrl = `https://netic.app/posts/${postId}`;
+  const encodedUrl = encodeURIComponent(postUrl);
+  const encodedTitle = encodeURIComponent(title);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(postUrl);
+    alert("🔗 Link copied!");
+  };
+
+  return (
+    <div className="flex gap-3 mt-4">
+      <a href={`https://twitter.com/intent/tweet?url=${encodedUrl}&text=${encodedTitle}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:scale-110 transition-transform">
+        <FaTwitter size={20} />
+      </a>
+      <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:scale-110 transition-transform">
+        <FaFacebookF size={20} />
+      </a>
+      <a href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`} target="_blank" rel="noopener noreferrer" className="text-blue-700 hover:scale-110 transition-transform">
+        <FaLinkedinIn size={20} />
+      </a>
+      <button onClick={handleCopy} className="text-gray-600 hover:text-black hover:scale-110 transition-transform">
+        <FaCopy size={20} />
+      </button>
+    </div>
+  );
+};
+<!-- OGP Metadata -->
+<meta property="og:title" content="Netic - Idea Platform" />
+<meta property="og:description" content="Innovative ideas from global users. Vote, comment, and make them real!" />
+<meta property="og:image" content="https://netic.app/og-image.png" />
+<meta property="og:url" content="https://netic.app" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary_large_image" />
+import { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabaseClient';
+
+const defaultAvatar = '/default-avatar.png';
+
+const ProfilePage = ({ userId, currentUserId }) => {
+  const [profile, setProfile] = useState(null);
+  const isOwner = userId === currentUserId;
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      if (!error) setProfile(data);
+    };
+    fetchProfile();
+  }, [userId]);
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files[0];
+    // ← 本番環境ではバリデーション + Supabase Storage 連携
+    const fileUrl = URL.createObjectURL(file);
+    setProfile((prev) => ({ ...prev, avatar_url: fileUrl }));
+  };
+
+  const handleSave = async () => {
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        username: profile.username,
+        avatar_url: profile.avatar_url,
+      })
+      .eq('id', userId);
+    if (!error) alert("✅ Profile updated!");
+  };
+
+  if (!profile) return <p>Loading...</p>;
+
+  return (
+    <div className="max-w-2xl mx-auto p-6">
+      <div className="flex flex-col items-center gap-4">
+        <img
+          src={profile.avatar_url || defaultAvatar}
+          alt="Avatar"
+          className="w-24 h-24 rounded-full object-cover"
+        />
+        {isOwner && (
+          <input type="file" onChange={handleAvatarChange} className="text-sm" />
+        )}
+
+        <input
+          type="text"
+          value={profile.username || ''}
+          onChange={(e) =>
+            setProfile((prev) => ({ ...prev, username: e.target.value }))
+          }
+          className="border px-4 py-2 rounded-md mt-2 w-full text-center"
+          disabled={!isOwner}
+        />
+        {isOwner && (
+          <button
+            onClick={handleSave}
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            Save Profile
+          </button>
+        )}
+      </div>
+
+      <div className="mt-8">
+        <h2 className="text-lg font-semibold mb-2">My Posts</h2>
+        {/* 投稿履歴一覧（投稿カードの再利用） */}
+        {/* 投稿データは userId で filter して取得 */}
+      </div>
+    </div>
+  );
+};
+// ShareButton.jsx
+import React from "react";
+import { Copy, Share2 } from "lucide-react";
+
+const ShareButton = ({ postId, title }) => {
+  const shareUrl = `${window.location.origin}/post/${postId}`;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(shareUrl);
+    alert("URL copied to clipboard!");
+  };
+
+  const shareOptions = [
+    {
+      name: "Twitter/X",
+      url: `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(title)}`
+    },
+    {
+      name: "Facebook",
+      url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`
+    },
+    {
+      name: "LinkedIn",
+      url: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`
+    }
+  ];
+
+  return (
+    <div className="relative flex items-center gap-2 text-sm">
+      <a
+        href={shareOptions[0].url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-blue-500 hover:underline"
+      >
+        <Share2 className="inline-block w-4 h-4 mr-1" />
+        Share
+      </a>
+      <button onClick={handleCopy} className="text-gray-500 hover:underline flex items-center">
+        <Copy className="inline-block w-4 h-4 mr-1" />
+        Copy Link
+      </button>
+    </div>
+  );
+};
+
+export default ShareButton;
+// TagSidebar.jsx
+import React from "react";
+
+const TagSidebar = ({ tags, selectedTag, onTagSelect }) => {
+  return (
+    <div className="bg-gray-100 p-4 rounded-md dark:bg-gray-800">
+      <h3 className="text-sm font-semibold mb-2">Filter by Tags</h3>
+      <ul className="space-y-1">
+        {tags.map((tag) => (
+          <li key={tag}>
+            <button
+              onClick={() => onTagSelect(tag)}
+              className={`text-xs px-2 py-1 rounded-full ${
+                selectedTag === tag
+                  ? "bg-blue-600 text-white"
+                  : "bg-white text-gray-700 dark:bg-gray-700 dark:text-white"
+              }`}
+            >
+              #{tag}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+export default TagSidebar;
+// BookmarkButton.jsx
+import React, { useState, useEffect } from "react";
+import { Bookmark, BookmarkCheck } from "lucide-react";
+
+const BookmarkButton = ({ postId, currentUserId }) => {
+  const [bookmarked, setBookmarked] = useState(false);
+
+  useEffect(() => {
+    // ここでSupabaseからブックマーク状態をフェッチすることが可能
+    // setBookmarked(true or false);
+  }, [postId, currentUserId]);
+
+  const handleBookmark = () => {
+    // Supabaseに保存処理を追加（または削除）
+    setBookmarked((prev) => !prev);
+  };
+
+  return (
+    <button onClick={handleBookmark} className="text-sm text-blue-500 flex items-center gap-1">
+      {bookmarked ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
+      {bookmarked ? "Saved" : "Save"}
+    </button>
+  );
+};
+
+export default BookmarkButton;
+// DeleteConfirmModal.jsx
+import React from "react";
+
+const DeleteConfirmModal = ({ isOpen, onClose, onConfirm }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-full max-w-sm text-center shadow-lg">
+        <h2 className="text-lg font-semibold mb-4">Are you sure?</h2>
+        <p className="text-sm mb-4">Do you really want to delete this post? This action cannot be undone.</p>
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-1 text-sm bg-gray-300 dark:bg-gray-600 rounded-md"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              onConfirm();
+              onClose();
+            }}
+            className="px-4 py-1 text-sm bg-red-600 text-white rounded-md"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default DeleteConfirmModal;
